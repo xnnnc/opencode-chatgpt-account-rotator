@@ -1,0 +1,43 @@
+node_modules/
+
+# Logs and local runtime output
+*.log
+logs/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Temp and cache files
+tmp/
+temp/
+.tmp/
+.cache/
+.parcel-cache/
+.vite/
+
+# Environment files
+.env
+.env.*
+!.env.example
+
+# Local OpenCode and ChatGPT auth state
+accounts.json
+auth.json
+*.auth.json
+*.accounts.json
+.local/
+.config/opencode/auth.json
+
+# Agent workspace files
+.agents/
+AGENTS.md
+
+# Published separately
+opencode-rotator-plugin/
+
+# OS and editor noise
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/

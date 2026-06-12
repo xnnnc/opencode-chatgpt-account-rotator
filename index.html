@@ -1,0 +1,919 @@
+<!doctype html>
+<html lang="tr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>OpenCode Account Rotator</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --canvas: #f7f6f3;
+      --surface: #ffffff;
+      --surface-soft: #fbfbfa;
+      --border: #eaeaea;
+      --text: #2f3437;
+      --heading: #111111;
+      --muted: #787774;
+      --mono: #5f5d58;
+      --green-bg: #edf3ec;
+      --green-text: #346538;
+      --blue-bg: #e1f3fe;
+      --blue-text: #1f6c9f;
+      --yellow-bg: #fbf3db;
+      --yellow-text: #956400;
+      --red-bg: #fdebec;
+      --red-text: #9f2f2d;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: var(--canvas);
+      color: var(--text);
+      font-family: "SF Pro Display", "Geist Sans", "Helvetica Neue", Arial, sans-serif;
+      line-height: 1.6;
+    }
+
+    button, input { font: inherit; }
+    button { border: 0; }
+
+    .app {
+      position: relative;
+      z-index: 1;
+      min-height: 100vh;
+      padding: 20px;
+    }
+
+    .shell {
+      display: grid;
+      grid-template-rows: auto auto minmax(0, 1fr);
+      gap: 14px;
+      max-width: 1480px;
+      height: calc(100vh - 40px);
+      margin: 0 auto;
+    }
+
+    .topbar,
+    .stat,
+    .panel,
+    .account-row,
+    .empty-state {
+      border: 1px solid var(--border);
+      background: var(--surface);
+      border-radius: 12px;
+    }
+
+    .topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      padding: 14px 16px;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      min-width: 0;
+    }
+
+    .window-dots {
+      display: flex;
+      gap: 6px;
+      flex: 0 0 auto;
+    }
+
+    .window-dots span {
+      width: 9px;
+      height: 9px;
+      border-radius: 50%;
+      background: #d9d7d0;
+      border: 1px solid #cbc8bf;
+    }
+
+    h1,
+    h2,
+    h3,
+    p { margin: 0; }
+
+    h1 {
+      color: var(--heading);
+      font-family: "Newsreader", "Instrument Serif", Georgia, serif;
+      font-size: clamp(1.7rem, 3vw, 2.55rem);
+      line-height: 1.05;
+      letter-spacing: -0.035em;
+      font-weight: 600;
+    }
+
+    h2 {
+      color: var(--heading);
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 0.02em;
+    }
+
+    h3 {
+      color: var(--heading);
+      font-size: 15px;
+      line-height: 1.25;
+      letter-spacing: -0.01em;
+    }
+
+    .subtle {
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .top-actions,
+    .button-row,
+    .account-actions,
+    .field-row {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .button {
+      min-height: 34px;
+      padding: 8px 11px;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      color: var(--text);
+      cursor: pointer;
+      font-size: 13px;
+      font-weight: 600;
+      transition: background 160ms ease, transform 160ms ease, box-shadow 160ms ease;
+    }
+
+    .button:hover { background: #f7f6f3; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04); }
+    .button:active { transform: scale(0.98); }
+    .button.primary { background: #111111; border-color: #111111; color: #ffffff; }
+    .button.primary:hover { background: #333333; }
+    .button.danger { background: var(--red-bg); border-color: #f4d7d9; color: var(--red-text); }
+    .button:disabled { opacity: 0.45; cursor: not-allowed; box-shadow: none; transform: none; }
+
+    .input {
+      min-height: 34px;
+      min-width: 0;
+      padding: 7px 10px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      background: var(--surface-soft);
+      color: var(--text);
+      outline: none;
+      font-size: 13px;
+    }
+
+    .input:focus { border-color: #cfcac0; background: var(--surface); }
+
+    .stats {
+      display: grid;
+      grid-template-columns: 1.25fr repeat(3, minmax(150px, 0.7fr));
+      gap: 14px;
+    }
+
+    .stat {
+      padding: 18px;
+      min-height: 116px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+    }
+
+    .stat-value {
+      color: var(--heading);
+      font-family: "Newsreader", "Instrument Serif", Georgia, serif;
+      font-size: clamp(2rem, 4vw, 3.25rem);
+      line-height: 0.95;
+      letter-spacing: -0.04em;
+    }
+
+    .tag {
+      display: inline-flex;
+      align-items: center;
+      width: fit-content;
+      max-width: 100%;
+      padding: 3px 8px;
+      border-radius: 9999px;
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      white-space: nowrap;
+    }
+
+    .tag.neutral { background: #f1f1ef; color: #5f5d58; }
+    .tag.healthy, .tag.running { background: var(--green-bg); color: var(--green-text); }
+    .tag.cooldown, .tag.warn { background: var(--yellow-bg); color: var(--yellow-text); }
+    .tag.disabled, .tag.error { background: var(--red-bg); color: var(--red-text); }
+    .tag.auth { background: var(--blue-bg); color: var(--blue-text); }
+
+    .workspace {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 380px;
+      gap: 14px;
+      min-height: 0;
+    }
+
+    .panel {
+      min-height: 0;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .panel-head {
+      display: flex;
+      justify-content: space-between;
+      gap: 16px;
+      padding: 16px 18px;
+      border-bottom: 1px solid var(--border);
+      background: var(--surface);
+    }
+
+    .panel-head .meta {
+      color: var(--muted);
+      font-family: "Geist Mono", "SF Mono", Consolas, monospace;
+      font-size: 11px;
+      word-break: break-all;
+    }
+
+    .accounts-list {
+      display: grid;
+      gap: 10px;
+      padding: 12px;
+      overflow: auto;
+    }
+
+    .account-row {
+      display: grid;
+      grid-template-columns: minmax(180px, 1.1fr) 220px minmax(250px, 1fr);
+      gap: 14px;
+      align-items: center;
+      padding: 14px;
+      transition: box-shadow 160ms ease, transform 160ms ease;
+    }
+
+    .account-row:hover { box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04); }
+    .account-row.active { border-color: #d9d2c3; background: #fffdf8; }
+
+    .account-main {
+      min-width: 0;
+      display: grid;
+      gap: 5px;
+    }
+
+    .account-id,
+    .path,
+    kbd {
+      font-family: "Geist Mono", "SF Mono", Consolas, monospace;
+      color: var(--mono);
+      font-size: 11px;
+    }
+
+    .account-id,
+    .path {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .usage-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px;
+    }
+
+    .usage-box {
+      padding: 9px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: var(--surface-soft);
+    }
+
+    .usage-box strong {
+      display: block;
+      color: var(--heading);
+      font-size: 16px;
+      line-height: 1.1;
+    }
+
+    .usage-box span {
+      color: var(--muted);
+      font-size: 11px;
+    }
+
+    .account-actions {
+      justify-content: flex-end;
+    }
+
+    .account-actions .button {
+      min-height: 30px;
+      padding: 6px 8px;
+      font-size: 12px;
+    }
+
+    .side-stack {
+      display: grid;
+      grid-template-rows: auto auto minmax(0, 1fr);
+      gap: 14px;
+      min-height: 0;
+    }
+
+    .control-body {
+      display: grid;
+      gap: 14px;
+      padding: 16px;
+    }
+
+    .field {
+      display: grid;
+      gap: 8px;
+    }
+
+    .field label {
+      color: var(--heading);
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .field-row .input { flex: 1 1 150px; }
+
+    .divider {
+      height: 1px;
+      background: var(--border);
+    }
+
+    .status-line {
+      display: grid;
+      gap: 7px;
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .status-line strong {
+      color: var(--heading);
+      font-size: 13px;
+    }
+
+    .log-list {
+      flex: 1;
+      min-height: 0;
+      overflow: auto;
+      padding: 6px 16px 16px;
+      font-family: "Geist Mono", "SF Mono", Consolas, monospace;
+      font-size: 11px;
+      color: var(--mono);
+    }
+
+    .log-line {
+      padding: 9px 0;
+      border-bottom: 1px solid var(--border);
+      word-break: break-word;
+    }
+
+    .empty-state {
+      padding: 22px;
+      color: var(--muted);
+    }
+
+    kbd {
+      display: inline-flex;
+      align-items: center;
+      min-height: 22px;
+      padding: 2px 6px;
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      background: var(--canvas);
+    }
+
+    .toast {
+      position: fixed;
+      right: 18px;
+      bottom: 18px;
+      z-index: 50;
+      max-width: min(520px, calc(100% - 36px));
+      padding: 13px 14px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: var(--surface);
+      color: var(--text);
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+      display: grid;
+      gap: 3px;
+      opacity: 0;
+      transform: translateY(12px);
+      pointer-events: none;
+      transition: opacity 200ms ease, transform 200ms ease;
+      font-size: 13px;
+    }
+
+    .toast-title {
+      color: var(--heading);
+      font-size: 13px;
+      font-weight: 700;
+      line-height: 1.3;
+    }
+
+    .toast-detail {
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.45;
+      white-space: pre-wrap;
+    }
+
+    .toast.show { opacity: 1; transform: translateY(0); }
+
+    .reveal {
+      opacity: 0;
+      transform: translateY(12px);
+    }
+
+    .reveal.visible {
+      opacity: 1;
+      transform: translateY(0);
+      transition: opacity 600ms cubic-bezier(0.16, 1, 0.3, 1), transform 600ms cubic-bezier(0.16, 1, 0.3, 1);
+      transition-delay: calc(var(--index, 0) * 80ms);
+    }
+
+    @media (max-width: 1120px) {
+      .shell { height: auto; min-height: calc(100vh - 40px); }
+      .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .workspace { grid-template-columns: 1fr; }
+      .side-stack { grid-template-rows: auto auto 360px; }
+      .account-row { grid-template-columns: 1fr; align-items: start; }
+      .account-actions { justify-content: flex-start; }
+    }
+
+    @media (max-width: 680px) {
+      .app { padding: 12px; }
+      .shell { height: auto; gap: 10px; }
+      .topbar, .panel-head { align-items: flex-start; flex-direction: column; }
+      .stats { grid-template-columns: 1fr; gap: 10px; }
+      .top-actions { width: 100%; }
+      .top-actions .button { flex: 1 1 auto; }
+      .usage-grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <main class="app">
+    <div class="shell">
+      <header class="topbar reveal" style="--index: 0">
+        <div class="brand">
+          <div class="window-dots" aria-hidden="true"><span></span><span></span><span></span></div>
+          <div>
+            <h1>Rotator dashboard</h1>
+            <p class="subtle">Tek sayfada hesap geçişi, usage kontrolü ve watch yönetimi.</p>
+          </div>
+        </div>
+        <div class="top-actions">
+          <span class="tag neutral" id="navState">Loading</span>
+          <button class="button" id="refreshBtn" type="button">Yenile</button>
+          <button class="button primary" id="usageBtn" type="button">Usage çek</button>
+        </div>
+      </header>
+
+      <section class="stats" aria-label="Sistem özeti">
+        <article class="stat reveal" style="--index: 1">
+          <span class="tag neutral">Accounts</span>
+          <div>
+            <div class="stat-value" id="accountCount">0</div>
+            <p class="subtle">Kayıtlı hesap</p>
+          </div>
+        </article>
+        <article class="stat reveal" style="--index: 2">
+          <span class="tag neutral">Active</span>
+          <div>
+            <div class="stat-value" id="activeIndex">0</div>
+            <p class="subtle">Aktif index</p>
+          </div>
+        </article>
+        <article class="stat reveal" style="--index: 3">
+          <span class="tag auth">Auth</span>
+          <div class="status-line">
+            <strong id="authStatus">OpenCode auth durumu okunuyor.</strong>
+            <span class="path" id="authPath">Loading</span>
+          </div>
+        </article>
+        <article class="stat reveal" style="--index: 4">
+          <span class="tag neutral">Watch</span>
+          <div class="status-line">
+            <strong id="watchState">Loading</strong>
+            <span class="path" id="accountsPath">Loading</span>
+          </div>
+        </article>
+      </section>
+
+      <section class="workspace" aria-label="Rotator yönetimi">
+        <div class="panel reveal" style="--index: 5">
+          <div class="panel-head">
+            <div>
+              <h2>Hesap havuzu</h2>
+              <p class="subtle">Switch, enable, disable, probe ve delete işlemleri mevcut CLI üzerinden çalışır.</p>
+            </div>
+            <button class="button" id="switchNextBtn" type="button">En uygun hesaba geç</button>
+          </div>
+          <div class="accounts-list" id="accountsList"></div>
+        </div>
+
+        <aside class="side-stack">
+          <section class="panel reveal" style="--index: 6" aria-labelledby="quickActionsTitle">
+            <div class="panel-head">
+              <div>
+                <h2 id="quickActionsTitle">Hızlı işlemler</h2>
+                <p class="subtle">Login sonrası aktif auth bilgisini havuza ekleyin.</p>
+              </div>
+            </div>
+            <div class="control-body">
+              <div class="field">
+                <label for="labelInput">Yeni hesap etiketi</label>
+                <div class="field-row">
+                  <input class="input" id="labelInput" type="text" maxlength="80" placeholder="gpt-work-account">
+                  <button class="button primary" id="addBtn" type="button">Ekle</button>
+                </div>
+              </div>
+              <div class="divider"></div>
+              <div class="field">
+                <label for="thresholdInput">Usage threshold</label>
+                <div class="field-row">
+                  <input class="input" id="thresholdInput" type="number" min="0" max="100" step="1" value="95" placeholder="95">
+                  <span class="subtle">Watch bu yüzdeye ulaşınca hesap değiştirir.</span>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <section class="panel reveal" style="--index: 7" aria-labelledby="watchTitle">
+            <div class="panel-head">
+              <div>
+                <h2 id="watchTitle">Watch</h2>
+                <p class="subtle">Arka planda `node rotator.mjs watch` sürecini yönetir.</p>
+              </div>
+              <span class="tag neutral" id="watchPill">Loading</span>
+            </div>
+            <div class="control-body">
+              <div class="field">
+                <label for="intervalInput">Kontrol aralığı</label>
+                <div class="field-row">
+                  <input class="input" id="intervalInput" type="number" min="1000" step="1000" value="30000" placeholder="30000">
+                  <button class="button primary" id="startWatchBtn" type="button">Başlat</button>
+                  <button class="button danger" id="stopWatchBtn" type="button">Durdur</button>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <section class="panel reveal" style="--index: 8" aria-labelledby="logsTitle">
+            <div class="panel-head">
+              <div>
+                <h2 id="logsTitle">Log</h2>
+                <p class="subtle">Watch çıktısı ve işlem notları.</p>
+              </div>
+            </div>
+            <div class="log-list" id="logList"></div>
+          </section>
+        </aside>
+      </section>
+    </div>
+  </main>
+
+  <div class="toast" id="toast" role="status" aria-live="polite">
+    <div class="toast-title" id="toastTitle"></div>
+    <div class="toast-detail" id="toastDetail"></div>
+  </div>
+
+  <script>
+    const csrfToken = "__ROTATOR_CSRF_TOKEN__";
+    const state = { busy: false, data: null };
+    const elements = {
+      navState: document.getElementById("navState"),
+      accountCount: document.getElementById("accountCount"),
+      activeIndex: document.getElementById("activeIndex"),
+      authPath: document.getElementById("authPath"),
+      accountsPath: document.getElementById("accountsPath"),
+      authStatus: document.getElementById("authStatus"),
+      watchState: document.getElementById("watchState"),
+      watchPill: document.getElementById("watchPill"),
+      accountsList: document.getElementById("accountsList"),
+      logList: document.getElementById("logList"),
+      toast: document.getElementById("toast"),
+      toastTitle: document.getElementById("toastTitle"),
+      toastDetail: document.getElementById("toastDetail"),
+      labelInput: document.getElementById("labelInput"),
+      intervalInput: document.getElementById("intervalInput"),
+      thresholdInput: document.getElementById("thresholdInput"),
+    };
+
+    function showToast(message, detail = "") {
+      const title = typeof message === "object" ? message.title : message;
+      const body = typeof message === "object" ? message.detail : detail;
+      let nextTitle = title || "";
+      let nextBody = body || "";
+      if (!nextBody && typeof nextTitle === "string" && nextTitle.includes("\n")) {
+        const [firstLine, ...rest] = nextTitle.split("\n");
+        nextTitle = firstLine;
+        nextBody = rest.join("\n");
+      }
+      elements.toastTitle.textContent = nextTitle || "";
+      elements.toastDetail.textContent = nextBody || "";
+      elements.toast.classList.toggle("has-detail", Boolean(nextBody));
+      elements.toast.classList.add("show");
+      clearTimeout(showToast.timer);
+      showToast.timer = setTimeout(() => elements.toast.classList.remove("show"), 4200);
+    }
+
+    function isFiniteNumber(value) {
+      return typeof value === "number" && Number.isFinite(value);
+    }
+
+    function average(values) {
+      if (!values.length) return null;
+      return Math.round(values.reduce((sum, value) => sum + value, 0) / values.length);
+    }
+
+    function usageWindowSummary(usage) {
+      const pieces = [];
+      const primary = usage?.primaryWindow?.usedPercent;
+      const secondary = usage?.secondaryWindow?.usedPercent;
+      if (isFiniteNumber(primary)) pieces.push(`5s: ${primary}%`);
+      if (isFiniteNumber(secondary)) pieces.push(`7g: ${secondary}%`);
+      return pieces.join(" · ");
+    }
+
+    function usagePlanSummary(usage) {
+      const plan = formatPlanType(usage?.planType);
+      return plan === "Plan unknown" ? "" : `Plan: ${plan}`;
+    }
+
+    function summarizeUsageAccount(account) {
+      if (!account) return "";
+      const usage = account.codexUsage || {};
+      return [
+        usagePlanSummary(usage),
+        usageWindowSummary(usage),
+      ].filter(Boolean).join(" · ");
+    }
+
+    function buildBulkUsageToast(accounts) {
+      const usable = accounts.filter((account) => account?.codexUsage);
+      if (!usable.length) {
+        return {
+          title: "Tüm hesaplarda usage yenilendi",
+          detail: "Hesap detayları henüz dönmedi.",
+        };
+      }
+
+      const plans = [...new Set(usable.map((account) => usagePlanSummary(account.codexUsage)).filter(Boolean))];
+      const primaryValues = usable.map((account) => account.codexUsage?.primaryWindow?.usedPercent).filter(isFiniteNumber);
+      const secondaryValues = usable.map((account) => account.codexUsage?.secondaryWindow?.usedPercent).filter(isFiniteNumber);
+      const detailParts = [`${usable.length} hesap güncellendi`];
+      if (plans.length) detailParts.push(`Planlar: ${plans.slice(0, 2).join(", ")}${plans.length > 2 ? ` +${plans.length - 2}` : ""}`);
+      const primaryAvg = average(primaryValues);
+      if (primaryAvg !== null) detailParts.push(`5s ort.: ${primaryAvg}%`);
+      const secondaryAvg = average(secondaryValues);
+      if (secondaryAvg !== null) detailParts.push(`7g ort.: ${secondaryAvg}%`);
+      return {
+        title: "Tüm hesaplarda usage yenilendi",
+        detail: detailParts.join(" · "),
+      };
+    }
+
+    function buildSingleUsageToast(account) {
+      const summary = summarizeUsageAccount(account);
+      return {
+        title: `${account?.label || "Hesap"} için usage yenilendi`,
+        detail: summary || "Plan ve pencere bilgisi henüz yok.",
+      };
+    }
+
+    function formatId(accountId) {
+      if (!accountId) return "accountId: unknown";
+      if (accountId.length <= 16) return accountId;
+      return `${accountId.slice(0, 8)}...${accountId.slice(-6)}`;
+    }
+
+    function formatTime(ms) {
+      if (!ms) return "unknown";
+      return new Date(ms).toLocaleString();
+    }
+
+    function usagePercent(usage, key) {
+      const value = usage?.[key]?.usedPercent;
+      return value === null || value === undefined ? "n/a" : `${value}%`;
+    }
+
+    function formatPlanType(planType) {
+      if (typeof planType !== "string" || !planType.trim()) return "Plan unknown";
+      return planType
+        .trim()
+        .split(/[_\s-]+/)
+        .filter(Boolean)
+        .map((part) => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
+        .join(" ");
+    }
+
+    function statusClass(status) {
+      return ["healthy", "disabled", "cooldown"].includes(status) ? status : "neutral";
+    }
+
+    async function api(path, body) {
+      const options = body === undefined ? {} : {
+        method: "POST",
+        headers: { "content-type": "application/json", "x-rotator-token": csrfToken },
+        body: JSON.stringify(body),
+      };
+      const response = await fetch(path, options);
+      const payload = await response.json();
+      if (!response.ok || payload.ok === false) {
+        throw new Error(payload.error || payload.stderr || "Operation failed.");
+      }
+      return payload;
+    }
+
+    function accountNote(account) {
+      const blocked = account.usageBlockedUntil && account.usageBlockedUntil > Date.now();
+      if (blocked) return `Usage block: ${formatTime(account.usageBlockedUntil)}`;
+      if (account.disableReason) return `Disabled: ${account.disableReason}`;
+      if (account.lastSwitchReason) return `Last switch: ${account.lastSwitchReason}`;
+      return "Ready for rotation.";
+    }
+
+    function renderAccounts(accounts) {
+      if (!accounts.length) {
+        elements.accountsList.innerHTML = `<article class="empty-state"><h3>Hesap yok</h3><p>Önce OpenCode ile login olup aktif auth bilgisini havuza ekleyin.</p></article>`;
+        return;
+      }
+
+      elements.accountsList.innerHTML = accounts.map((account) => {
+        const usage = account.codexUsage || {};
+        return `
+          <article class="account-row ${account.active ? "active" : ""}">
+            <div class="account-main">
+              <div class="button-row">
+                <span class="tag ${statusClass(account.status)}">${escapeHtml(account.status)}</span>
+                <span class="tag neutral">${escapeHtml(formatPlanType(usage.planType))}</span>
+                ${account.active ? `<span class="tag auth">Active</span>` : ""}
+                ${account.inAuth ? `<span class="tag neutral">auth.json</span>` : ""}
+              </div>
+              <h3>${escapeHtml(account.label)}</h3>
+              <div class="account-id">${escapeHtml(formatId(account.accountId))}</div>
+              <p class="subtle">${escapeHtml(accountNote(account))}</p>
+            </div>
+            <div class="usage-grid">
+              <div class="usage-box"><strong>${usagePercent(usage, "primaryWindow")}</strong><span>5h window</span></div>
+              <div class="usage-box"><strong>${usagePercent(usage, "secondaryWindow")}</strong><span>7d window</span></div>
+            </div>
+            <div class="account-actions">
+              <button class="button primary" type="button" data-action="switch" data-index="${account.index}" data-account-key="${escapeHtml(account.accountKey)}" ${account.active || account.status === "disabled" ? "disabled" : ""}>Switch</button>
+              <button class="button" type="button" data-action="enable" data-index="${account.index}" data-account-key="${escapeHtml(account.accountKey)}" ${account.status !== "disabled" ? "disabled" : ""}>Enable</button>
+              <button class="button" type="button" data-action="disable" data-index="${account.index}" data-account-key="${escapeHtml(account.accountKey)}" ${account.status === "disabled" ? "disabled" : ""}>Disable</button>
+              <button class="button" type="button" data-action="usage" data-index="${account.index}" data-account-key="${escapeHtml(account.accountKey)}">Usage çek</button>
+              <button class="button danger" type="button" data-action="delete" data-index="${account.index}" data-account-key="${escapeHtml(account.accountKey)}">Delete</button>
+            </div>
+          </article>`;
+      }).join("");
+    }
+
+    function renderLogs(logs) {
+      if (!logs.length) {
+        elements.logList.innerHTML = `<div class="log-line">Watch log bekleniyor.</div>`;
+        return;
+      }
+      elements.logList.innerHTML = logs.slice().reverse().map((entry) => {
+        return `<div class="log-line">${new Date(entry.at).toLocaleTimeString()} · ${escapeHtml(entry.line)}</div>`;
+      }).join("");
+    }
+
+    function render(nextState) {
+      state.data = nextState;
+      const accounts = nextState.accounts || [];
+      const watch = nextState.watch || { running: false, logs: [] };
+      elements.navState.textContent = watch.running ? "Watch running" : "Watch idle";
+      elements.navState.className = `tag ${watch.running ? "running" : "neutral"}`;
+      elements.accountCount.textContent = String(accounts.length);
+      elements.activeIndex.textContent = String(nextState.activeIndex || 0);
+      elements.authPath.textContent = nextState.authFile || "unknown";
+      elements.accountsPath.textContent = nextState.accountsFile || "unknown";
+      elements.authStatus.textContent = nextState.authExists ? `Auth hazır · ${formatId(nextState.authAccountId)}` : "Auth bulunamadı. Önce opencode auth login çalıştırın.";
+      if (Array.isArray(nextState.stateErrors) && nextState.stateErrors.length > 0) {
+        elements.authStatus.textContent = `State error · ${nextState.stateErrors[0]}`;
+      }
+      elements.watchState.textContent = watch.running ? `Running · pid ${watch.pid}` : "Idle";
+      elements.watchPill.textContent = watch.running ? `pid ${watch.pid}` : "Idle";
+      elements.watchPill.className = `tag ${watch.running ? "running" : "neutral"}`;
+      renderAccounts(accounts);
+      renderLogs(watch.logs || []);
+    }
+
+    async function refresh() {
+      if (state.refreshing) return;
+      state.refreshing = true;
+      try {
+        const payload = await api("/api/state");
+        render(payload.state);
+      } finally {
+        state.refreshing = false;
+      }
+    }
+
+    async function run(path, body, successMessage) {
+      if (state.busy) return;
+      state.busy = true;
+      document.body.style.cursor = "progress";
+      try {
+        const payload = await api(path, body);
+        render(payload.state);
+        const output = [payload.stdout, payload.stderr].filter(Boolean).join("\n");
+        showToast(output || payload.message || successMessage);
+      } catch (error) {
+        showToast(error.message);
+        await refresh().catch(() => {});
+      } finally {
+        state.busy = false;
+        document.body.style.cursor = "";
+      }
+    }
+
+    async function runUsage(path, body, scope) {
+      if (state.busy) return;
+      state.busy = true;
+      document.body.style.cursor = "progress";
+      try {
+        const payload = await api(path, body);
+        render(payload.state);
+        const accounts = payload.state?.accounts || [];
+        const summary = scope === "bulk"
+          ? buildBulkUsageToast(accounts)
+          : buildSingleUsageToast(accounts.find((account) => account.accountKey === body.accountKey));
+        showToast(summary);
+      } catch (error) {
+        showToast(error.message);
+        await refresh().catch(() => {});
+      } finally {
+        state.busy = false;
+        document.body.style.cursor = "";
+      }
+    }
+
+    function escapeHtml(value) {
+      return String(value ?? "").replace(/[&<>'"]/g, (char) => ({
+        "&": "&amp;",
+        "<": "&lt;",
+        ">": "&gt;",
+        "'": "&#39;",
+        "\"": "&quot;",
+      })[char]);
+    }
+
+    document.getElementById("refreshBtn").addEventListener("click", () => refresh().then(() => showToast("Durum yenilendi.")));
+    document.getElementById("usageBtn").addEventListener("click", () => runUsage("/api/usage", {}, "bulk"));
+    document.getElementById("addBtn").addEventListener("click", () => run("/api/add", { label: elements.labelInput.value }, "Hesap eklendi."));
+    document.getElementById("switchNextBtn").addEventListener("click", () => run("/api/switch", {}, "En uygun hesaba geçildi."));
+    document.getElementById("startWatchBtn").addEventListener("click", () => run("/api/watch/start", {
+      intervalMs: Number(elements.intervalInput.value),
+      thresholdPercent: Number(elements.thresholdInput.value),
+    }, "Watch başlatıldı."));
+    document.getElementById("stopWatchBtn").addEventListener("click", () => run("/api/watch/stop", {}, "Watch durduruldu."));
+
+    elements.accountsList.addEventListener("click", (event) => {
+      const button = event.target.closest("button[data-action]");
+      if (!button) return;
+      const index = Number(button.dataset.index);
+      const accountKey = button.dataset.accountKey;
+      const action = button.dataset.action;
+      if (action === "delete" && !confirm(`Index ${index} silinsin mi?`)) return;
+      if (action === "disable") {
+        const reason = prompt("Disable reason", "manual_gui_disable") || "manual_gui_disable";
+        run("/api/disable", { index, accountKey, reason }, "Hesap disable edildi.");
+        return;
+      }
+      if (action === "usage") {
+        runUsage("/api/usage/account", { index, accountKey }, "single");
+        return;
+      }
+      run(`/api/${action}`, { index, accountKey }, `${action} tamamlandı.`);
+    });
+
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach((entry) => {
+        if (entry.isIntersecting) {
+          entry.target.classList.add("visible");
+          observer.unobserve(entry.target);
+        }
+      });
+    }, { threshold: 0.08 });
+
+    document.querySelectorAll(".reveal").forEach((item) => {
+      observer.observe(item);
+    });
+    refresh().catch((error) => showToast(error.message));
+    setInterval(() => refresh().catch(() => {}), 5000);
+  </script>
+</body>
+</html>
