@@ -30,7 +30,13 @@ function userConfigDir(appName = APP_NAME) {
 
 function defaultOpenCodeAuthFile() {
   if (process.env.OPENCODE_AUTH_FILE) return resolve(process.env.OPENCODE_AUTH_FILE);
-  if (process.platform === "win32") return resolve(process.env.LOCALAPPDATA || resolve(homedir(), "AppData/Local"), "opencode", "auth.json");
+  if (process.platform === "win32") {
+    const candidates = [
+      resolve(homedir(), ".local/share/opencode/auth.json"),
+      resolve(process.env.LOCALAPPDATA || resolve(homedir(), "AppData/Local"), "opencode", "auth.json"),
+    ];
+    return candidates.find((filePath) => existsSync(filePath)) || candidates[0];
+  }
   if (process.platform === "darwin") return resolve(homedir(), "Library/Application Support", "opencode", "auth.json");
   return resolve(process.env.XDG_DATA_HOME || resolve(homedir(), ".local/share"), "opencode", "auth.json");
 }
