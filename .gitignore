@@ -25,6 +25,7 @@ temp/
 accounts.json
 auth.json
 import-accounts.json
+import-accounts.mjs
 *.auth.json
 *.accounts.json
 .local/
