@@ -24,10 +24,14 @@ temp/
 # Local OpenCode and ChatGPT auth state
 accounts.json
 auth.json
+import-accounts.json
 *.auth.json
 *.accounts.json
 .local/
 .config/opencode/auth.json
+
+# Agent runtime state
+.omx/
 
 # Agent workspace files
 .agents/
