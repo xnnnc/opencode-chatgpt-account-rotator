@@ -43,7 +43,9 @@ function defaultOpenCodeAuthFile() {
 
 const ACCOUNTS_FILE = process.env.ROTATOR_ACCOUNTS_FILE
   ? resolve(process.env.ROTATOR_ACCOUNTS_FILE)
-  : resolve(userConfigDir(), "accounts.json");
+  : existsSync(LEGACY_ACCOUNTS_FILE)
+    ? LEGACY_ACCOUNTS_FILE
+    : resolve(userConfigDir(), "accounts.json");
 const AUTH_FILE = process.env.ROTATOR_AUTH_FILE
   ? resolve(process.env.ROTATOR_AUTH_FILE)
   : defaultOpenCodeAuthFile();
@@ -72,7 +74,7 @@ function writeJson(filePath, data) {
 }
 
 function readAccounts() {
-  const data = readJson(ACCOUNTS_FILE) ?? (!process.env.ROTATOR_ACCOUNTS_FILE ? readJson(LEGACY_ACCOUNTS_FILE) : null);
+  const data = readJson(ACCOUNTS_FILE);
   if (!data) return { activeIndex: 0, accounts: [] };
   return data;
 }

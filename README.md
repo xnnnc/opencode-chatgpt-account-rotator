@@ -170,13 +170,19 @@ node rotator.mjs watch --interval 30000
 
 ### Account pool path
 
-New account-pool writes use a user config directory outside the repository by default:
+The rotator resolves the account pool path in this order:
+
+1. `ROTATOR_ACCOUNTS_FILE`, when set.
+2. Repo-local `accounts.json`, when it exists.
+3. User config `accounts.json` outside the repository.
+
+That means a local `accounts.json` in the repository is preferred over the user config copy, matching the original working project behavior.
 
 - Windows: `%APPDATA%\opencode-chatgpt-account-rotator\accounts.json`
 - macOS: `~/Library/Application Support/opencode-chatgpt-account-rotator/accounts.json`
 - Linux: `${XDG_CONFIG_HOME:-~/.config}/opencode-chatgpt-account-rotator/accounts.json`
 
-A legacy repo-local `accounts.json` is read only as a fallback when the config-path file does not exist. New writes use the config path unless `ROTATOR_ACCOUNTS_FILE` is set.
+New writes follow the same resolved path unless `ROTATOR_ACCOUNTS_FILE` is set.
 
 ### Changing the GUI port
 

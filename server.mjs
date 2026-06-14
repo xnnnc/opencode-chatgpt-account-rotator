@@ -36,7 +36,9 @@ function defaultOpenCodeAuthFile() {
 
 const ACCOUNTS_FILE = process.env.ROTATOR_ACCOUNTS_FILE
   ? resolve(process.env.ROTATOR_ACCOUNTS_FILE)
-  : resolve(userConfigDir(), "accounts.json");
+  : existsSync(LEGACY_ACCOUNTS_FILE)
+    ? LEGACY_ACCOUNTS_FILE
+    : resolve(userConfigDir(), "accounts.json");
 const AUTH_FILE = process.env.ROTATOR_AUTH_FILE
   ? resolve(process.env.ROTATOR_AUTH_FILE)
   : defaultOpenCodeAuthFile();
@@ -68,8 +70,7 @@ function readJsonControlled(filePath) {
 
 function readAccountsControlled() {
   const primary = readJsonControlled(ACCOUNTS_FILE);
-  if (primary.data || primary.error || process.env.ROTATOR_ACCOUNTS_FILE) return primary;
-  return readJsonControlled(LEGACY_ACCOUNTS_FILE);
+  return primary;
 }
 
 function maskIdentifier(value) {
