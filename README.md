@@ -266,7 +266,7 @@ Check that another account is enabled and healthy. Disabled accounts are skipped
 
 ### GUI or plugin mutation requests fail
 
-Mutating local API calls require the current `x-rotator-token`. Restarting the GUI server creates a new token unless `ROTATOR_API_TOKEN` is set. See [SECURITY.md](SECURITY.md) for details.
+Mutating local API calls require the current `x-rotator-token`. Restarting the GUI server creates a new token unless `ROTATOR_API_TOKEN` is set. The server also writes the current local plugin token to the user config `api-token` file so the separate TUI plugin can pick it up without copying the console value. See [SECURITY.md](SECURITY.md) for details.
 
 ## Publishing and security checklist
 

@@ -19,7 +19,7 @@ Do not commit, paste, or share these files. File permissions are created as rest
 
 The GUI server listens on `127.0.0.1`, but localhost is not an authentication boundary. Every POST requires a per-server token in `x-rotator-token`; the old `x-rotator-client: opencode-tui` bypass is not accepted for mutations.
 
-The browser dashboard receives the token from the local server. To use the TUI/plugin with a server-generated token, copy the server output into `OPENCODE_ROTATOR_TOKEN`. To preconfigure a shared token for both server and plugin, start the server with `ROTATOR_API_TOKEN` and use the same value in the plugin environment.
+The browser dashboard receives the token from the local server. The server writes the current local plugin token to the user config `api-token` file for local plugin clients. To override that discovery, copy the server output into `OPENCODE_ROTATOR_TOKEN`. To preconfigure a shared token for both server and plugin, start the server with `ROTATOR_API_TOKEN` and use the same value in the plugin environment.
 
 ## Stable account targeting
 

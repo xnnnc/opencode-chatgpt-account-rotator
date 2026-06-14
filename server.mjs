@@ -2,7 +2,7 @@
 
 import { spawn } from "node:child_process";
 import { createHmac, randomBytes } from "node:crypto";
-import { existsSync, readFileSync } from "node:fs";
+import { chmodSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { createServer } from "node:http";
 import { homedir } from "node:os";
 import { dirname, resolve } from "node:path";
@@ -46,6 +46,7 @@ const HOST = "127.0.0.1";
 const PORT = Number.parseInt(process.env.ROTATOR_GUI_PORT || "4317", 10);
 const ORIGIN = `http://${HOST}:${PORT}`;
 const API_TOKEN = process.env.ROTATOR_API_TOKEN || randomBytes(32).toString("base64url");
+const API_TOKEN_FILE = resolve(userConfigDir(), "api-token");
 const MAX_BODY_BYTES = 64 * 1024;
 const MAX_LOG_LINES = 240;
 
@@ -143,6 +144,17 @@ function appendWatchLog(chunk) {
   }
   if (watchLogs.length > MAX_LOG_LINES) {
     watchLogs.splice(0, watchLogs.length - MAX_LOG_LINES);
+  }
+}
+
+function writeSessionTokenFile() {
+  try {
+    mkdirSync(dirname(API_TOKEN_FILE), { recursive: true });
+    writeFileSync(API_TOKEN_FILE, `${API_TOKEN}\n`, { mode: 0o600 });
+    chmodSync(API_TOKEN_FILE, 0o600);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    console.warn(`Could not write plugin token file: ${message}`);
   }
 }
 
@@ -455,11 +467,13 @@ const server = createServer(async (request, response) => {
 });
 
 server.listen(PORT, HOST, () => {
+  writeSessionTokenFile();
   console.log(`Rotator GUI running at http://${HOST}:${PORT}`);
   if (!process.env.ROTATOR_API_TOKEN) {
     console.log("Set OPENCODE_ROTATOR_TOKEN to the displayed session token for TUI POST actions.");
     console.log(`OPENCODE_ROTATOR_TOKEN=${API_TOKEN}`);
   }
+  console.log(`Plugin token file: ${API_TOKEN_FILE}`);
 });
 
 process.on("SIGINT", () => {
