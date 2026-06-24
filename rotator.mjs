@@ -52,6 +52,7 @@ const AUTH_FILE = process.env.ROTATOR_AUTH_FILE
 const OPENAI_CLIENT_ID = "app_EMoamEEZ73f0CkXaXp7hrann";
 const CODEX_USAGE_URL = "https://chatgpt.com/backend-api/wham/usage";
 const DEFAULT_USAGE_THRESHOLD_PERCENT = normalizeThreshold(process.env.CODEX_USAGE_THRESHOLD_PERCENT, 95);
+const UNGROUPED_GROUP_SENTINEL = "__ungrouped__";
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -99,6 +100,32 @@ function parsePositiveInteger(value, label) {
     throw new Error(`Invalid ${label}: ${value}. Expected a positive integer.`);
   }
   return parsed;
+}
+
+function normalizeGroup(value) {
+  const group = typeof value === "string" ? value.trim() : "";
+  if (group.length > 60) {
+    throw new Error("Group must be 60 characters or less.");
+  }
+  return group;
+}
+
+function normalizeLabel(value) {
+  const label = typeof value === "string" ? value.trim() : "";
+  if (!label) {
+    throw new Error("Label is required.");
+  }
+  if (label.length > 80) {
+    throw new Error("Label must be 80 characters or less.");
+  }
+  return label;
+}
+
+function accountInGroup(acc, group) {
+  const normalizedGroup = normalizeGroup(group);
+  if (!normalizedGroup) return true;
+  if (normalizedGroup === UNGROUPED_GROUP_SENTINEL) return !normalizeGroup(acc?.group);
+  return normalizeGroup(acc?.group) === normalizedGroup;
 }
 
 function fail(message) {
@@ -298,12 +325,13 @@ function buildSelectionCandidate(accounts, idx, thresholdPercent) {
   };
 }
 
-function choosePreferredAccount(accounts, thresholdPercent = DEFAULT_USAGE_THRESHOLD_PERCENT, excludedIndices = new Set()) {
+function choosePreferredAccount(accounts, thresholdPercent = DEFAULT_USAGE_THRESHOLD_PERCENT, excludedIndices = new Set(), group = "") {
   const candidates = [];
 
   for (let idx = 0; idx < accounts.accounts.length; idx += 1) {
     if (excludedIndices.has(idx)) continue;
     const acc = accounts.accounts[idx];
+    if (!accountInGroup(acc, group)) continue;
     if (!acc || acc.status !== "healthy" || isUsageBlocked(acc)) continue;
     candidates.push(buildSelectionCandidate(accounts, idx, thresholdPercent));
   }
@@ -321,7 +349,7 @@ function choosePreferredAccount(accounts, thresholdPercent = DEFAULT_USAGE_THRES
   return candidates[0].idx;
 }
 
-function chooseNextHealthyAccount(accounts, excludedIndices = new Set()) {
+function chooseNextHealthyAccount(accounts, excludedIndices = new Set(), group = "") {
   const total = accounts.accounts.length;
   if (total === 0) return -1;
 
@@ -330,6 +358,7 @@ function chooseNextHealthyAccount(accounts, excludedIndices = new Set()) {
     if (excludedIndices.has(idx)) continue;
 
     const acc = accounts.accounts[idx];
+    if (!accountInGroup(acc, group)) continue;
     if (acc?.status === "healthy" && !isUsageBlocked(acc)) return idx;
   }
 
@@ -440,12 +469,25 @@ function writeActiveAccount(accounts, nextIdx) {
   accounts.activeIndex = nextIdx;
 }
 
-async function maybeRotateOnUsage(thresholdPercent = DEFAULT_USAGE_THRESHOLD_PERCENT) {
+async function maybeRotateOnUsage(thresholdPercent = DEFAULT_USAGE_THRESHOLD_PERCENT, group = "") {
   const accounts = readAccounts();
   const currentIdx = accounts.activeIndex;
   const currentAcc = accounts.accounts[currentIdx];
 
   if (!currentAcc || currentAcc.status === "disabled") return;
+
+  if (!accountInGroup(currentAcc, group)) {
+    const nextIdx = choosePreferredAccount(accounts, thresholdPercent, new Set(), group);
+    if (nextIdx === -1) {
+      console.log(`[watch] Active account is outside group "${group}", but no healthy account exists in that group.`);
+      return;
+    }
+
+    writeActiveAccount(accounts, nextIdx);
+    writeAccounts(accounts);
+    console.log(`[watch] ✓ Switched to group "${group}" account "${accounts.accounts[nextIdx].label}" (index: ${nextIdx})`);
+    return;
+  }
 
   await refreshUsageSnapshots(accounts, [currentIdx]);
 
@@ -456,10 +498,10 @@ async function maybeRotateOnUsage(thresholdPercent = DEFAULT_USAGE_THRESHOLD_PER
     return;
   }
 
-  const nextIdx = chooseNextHealthyAccount(accounts, new Set([currentIdx]));
+  const nextIdx = chooseNextHealthyAccount(accounts, new Set([currentIdx]), group);
   if (nextIdx === -1) {
     writeAccounts(accounts);
-    console.log(`[usage] "${currentAcc.label}" crossed the ${thresholdPercent}% threshold, but no alternate healthy account is available.`);
+    console.log(`[usage] "${currentAcc.label}" crossed the ${thresholdPercent}% threshold, but no alternate healthy account is available${group ? ` in group "${group}"` : ""}.`);
     return;
   }
 
@@ -506,7 +548,7 @@ async function refreshAccessToken(refreshToken) {
  * add - Read current auth.json, save it as a new account in accounts.json.
  * Usage: node rotator.mjs add [label]
  */
-function cmdAdd(label) {
+function cmdAdd(label, groupValue) {
   const auth = readAuth();
   if (!auth?.openai) {
     console.error("Error: No openai entry found in auth.json. Run 'opencode auth login' first.");
@@ -516,6 +558,7 @@ function cmdAdd(label) {
   const accounts = readAccounts();
   const entry = {
     label: label || `account-${accounts.accounts.length + 1}`,
+    group: normalizeGroup(groupValue),
     openai: { ...auth.openai },
     status: "healthy",
     addedAt: Date.now(),
@@ -525,7 +568,7 @@ function cmdAdd(label) {
   accounts.activeIndex = accounts.accounts.length - 1;
   writeAccounts(accounts);
 
-  console.log(`✓ Added "${entry.label}" (accountId: ${auth.openai.accountId || "unknown"})`);
+  console.log(`✓ Added "${entry.label}" (group: ${entry.group || "ungrouped"}, accountId: ${auth.openai.accountId || "unknown"})`);
   console.log(`  Total accounts: ${accounts.accounts.length}`);
 }
 
@@ -550,7 +593,8 @@ function cmdStatus() {
     clearExpiredUsageBlock(acc);
     const active = i === accounts.activeIndex ? " ← ACTIVE" : "";
     const matchTag = acc.openai?.accountId === currentAccountId ? " [in auth.json]" : "";
-    console.log(`  [${i}] ${acc.label} | status: ${acc.status} | accountId: ${acc.openai?.accountId || "?"}${active}${matchTag}`);
+    const group = normalizeGroup(acc.group) || "ungrouped";
+    console.log(`  [${i}] ${acc.label} | group: ${group} | status: ${acc.status} | accountId: ${acc.openai?.accountId || "?"}${active}${matchTag}`);
     if (acc.cooldownUntil && acc.cooldownUntil > Date.now()) {
       console.log(`      cooldown until: ${new Date(acc.cooldownUntil).toLocaleString()}`);
     }
@@ -565,6 +609,73 @@ function cmdStatus() {
       console.log(`      ${usageSummary}`);
     }
   });
+}
+
+/**
+ * group <index> [group] - Set or clear an account group.
+ */
+function cmdGroup(indexStr, groupValue) {
+  const accounts = readAccounts();
+  const index = parseStrictIndex(indexStr, accounts.accounts.length);
+  const group = normalizeGroup(groupValue);
+  const acc = accounts.accounts[index];
+
+  if (group) {
+    acc.group = group;
+  } else {
+    delete acc.group;
+  }
+
+  writeAccounts(accounts);
+  console.log(`✓ Set group for "${acc.label}" (index: ${index}) to ${group || "ungrouped"}`);
+}
+
+function cmdRename(indexStr, labelValue) {
+  const accounts = readAccounts();
+  const index = parseStrictIndex(indexStr, accounts.accounts.length);
+  const label = normalizeLabel(labelValue);
+  const acc = accounts.accounts[index];
+  const oldLabel = acc.label;
+
+  acc.label = label;
+  writeAccounts(accounts);
+  console.log(`✓ Renamed account "${oldLabel}" (index: ${index}) to "${label}"`);
+}
+
+function cmdRenameGroup(oldGroupValue, newGroupValue) {
+  const accounts = readAccounts();
+  const oldGroup = normalizeGroup(oldGroupValue);
+  const newGroup = normalizeGroup(newGroupValue);
+  if (!oldGroup) throw new Error("Existing group name is required.");
+  if (!newGroup) throw new Error("New group name is required.");
+
+  let changed = 0;
+  for (const acc of accounts.accounts) {
+    if (normalizeGroup(acc.group) === oldGroup) {
+      acc.group = newGroup;
+      changed += 1;
+    }
+  }
+
+  writeAccounts(accounts);
+  console.log(`✓ Renamed group "${oldGroup}" to "${newGroup}" on ${changed} account(s)`);
+}
+
+function cmdDeleteGroup(groupValue) {
+  const accounts = readAccounts();
+  const group = normalizeGroup(groupValue);
+  if (!group) throw new Error("Group name is required.");
+
+  let changed = 0;
+  for (const acc of accounts.accounts) {
+    if (normalizeGroup(acc.group) === group) {
+      delete acc.group;
+      changed += 1;
+    }
+  }
+
+  writeAccounts(accounts);
+  console.log(`✓ Deleted group "${group}" from ${changed} account(s)`);
 }
 
 /**
@@ -694,8 +805,9 @@ function cmdDelete(indexStr) {
  *         On threshold breach: auto-switch to next healthy account + refresh expired tokens.
  * Usage: node rotator.mjs watch [--interval 5000]
  */
-async function cmdWatch(intervalMs = 30_000) {
-  console.log(`Rotator watch started (interval: ${intervalMs}ms)`);
+async function cmdWatch(intervalMs = 30_000, groupValue = process.env.ROTATOR_WATCH_GROUP) {
+  const group = normalizeGroup(groupValue);
+  console.log(`Rotator watch started (interval: ${intervalMs}ms${group ? `, group: ${group}` : ""})`);
   console.log(`Monitoring active account token expiry + live usage threshold`);
   console.log("Press Ctrl+C to stop.\n");
 
@@ -705,13 +817,13 @@ async function cmdWatch(intervalMs = 30_000) {
   const runTick = async () => {
     try {
       // 1. Check if current active account's token is expired → refresh
-      await refreshIfExpired();
+      await refreshIfExpired(group);
 
       // 2. Check if auth.json has been replaced externally (manual login) → sync
       await syncAuthChanges();
 
       // 3. Check the live Codex usage window before we actually hit the limit
-      await maybeRotateOnUsage();
+      await maybeRotateOnUsage(DEFAULT_USAGE_THRESHOLD_PERCENT, group);
     } catch (err) {
       // Silently log, don't crash
       console.error(`[watch error] ${err.message}`);
@@ -779,7 +891,7 @@ async function cmdProbe(indexStr) {
 
 // ── Internal Helpers ─────────────────────────────────────────────────────────
 
-async function refreshIfExpired() {
+async function refreshIfExpired(group = "") {
   const accounts = readAccounts();
   if (accounts.accounts.length === 0) return;
 
@@ -817,7 +929,7 @@ async function refreshIfExpired() {
       }
 
       // Try switching to next healthy
-      await autoSwitchOnError("token_refresh_failed");
+      await autoSwitchOnError("token_refresh_failed", group);
     }
   }
 }
@@ -853,7 +965,7 @@ async function syncAuthChanges() {
   }
 }
 
-async function autoSwitchOnError(reason) {
+async function autoSwitchOnError(reason, group = "") {
   const accounts = readAccounts();
   if (accounts.accounts.length <= 1) {
     console.log("[switch] No other accounts to switch to.");
@@ -874,14 +986,14 @@ async function autoSwitchOnError(reason) {
     accounts,
     accounts.accounts
       .map((acc, idx) => ({ acc, idx }))
-      .filter(({ acc, idx }) => idx !== currentIdx && acc?.status === "healthy")
+      .filter(({ acc, idx }) => idx !== currentIdx && acc?.status === "healthy" && accountInGroup(acc, group))
       .map(({ idx }) => idx)
   );
 
-  const nextIdx = choosePreferredAccount(accounts, DEFAULT_USAGE_THRESHOLD_PERCENT, new Set([currentIdx]));
+  const nextIdx = choosePreferredAccount(accounts, DEFAULT_USAGE_THRESHOLD_PERCENT, new Set([currentIdx]), group);
   if (nextIdx === -1) {
     writeAccounts(accounts);
-    console.error("[switch] No healthy account available!");
+    console.error(`[switch] No healthy account available${group ? ` in group "${group}"` : ""}!`);
     return;
   }
 
@@ -964,15 +1076,19 @@ function printUsage() {
   console.log(`opencode-chatgpt-account-rotator
 
 Usage:
-  node rotator.mjs add [label]       Save current auth.json as new account
+  node rotator.mjs add [label] [group] Save current auth.json as new account
   node rotator.mjs status            Show all accounts and active one
   node rotator.mjs switch [index]    Switch to account (next healthy, or by index)
   node rotator.mjs enable <index>    Re-enable a disabled account
   node rotator.mjs disable <index>   Disable an account
+  node rotator.mjs rename <index> <label>
+  node rotator.mjs group <index> [group]
+  node rotator.mjs rename-group <old> <new>
+  node rotator.mjs delete-group <group>
   node rotator.mjs delete <index>    Delete an account from accounts.json
   node rotator.mjs probe <index>     Try restoring a cooldown account
   node rotator.mjs usage [--all|index] [--json]
-  node rotator.mjs watch [--interval <ms>|--interval=<ms>]
+  node rotator.mjs watch [--interval <ms>|--interval=<ms>] [--group <group>|--group=<group>]
 
 Credential files:
   accounts.json: ${ACCOUNTS_FILE}
@@ -987,14 +1103,26 @@ Workflow:
 }
 
 function parseWatchArgs(args) {
-  if (args.length === 0) return 30_000;
-  if (args.length === 1 && args[0].startsWith("--interval=")) {
-    return parsePositiveInteger(args[0].slice("--interval=".length), "watch interval");
+  const parsed = { intervalMs: 30_000, group: "" };
+
+  for (let idx = 0; idx < args.length; idx += 1) {
+    const arg = args[idx];
+    if (arg.startsWith("--interval=")) {
+      parsed.intervalMs = parsePositiveInteger(arg.slice("--interval=".length), "watch interval");
+    } else if (arg === "--interval") {
+      idx += 1;
+      parsed.intervalMs = parsePositiveInteger(args[idx], "watch interval");
+    } else if (arg.startsWith("--group=")) {
+      parsed.group = normalizeGroup(arg.slice("--group=".length));
+    } else if (arg === "--group") {
+      idx += 1;
+      parsed.group = normalizeGroup(args[idx]);
+    } else {
+      throw new Error("Usage: node rotator.mjs watch [--interval <ms>|--interval=<ms>] [--group <group>|--group=<group>]");
+    }
   }
-  if (args.length === 2 && args[0] === "--interval") {
-    return parsePositiveInteger(args[1], "watch interval");
-  }
-  throw new Error("Usage: node rotator.mjs watch [--interval <ms>|--interval=<ms>]");
+
+  return parsed;
 }
 
 try {
@@ -1006,8 +1134,8 @@ try {
       printUsage();
       break;
     case "add":
-      if (args.length > 1) fail("Usage: node rotator.mjs add [label]");
-      cmdAdd(args[0]);
+      if (args.length > 2) fail("Usage: node rotator.mjs add [label] [group]");
+      cmdAdd(args[0], args[1]);
       break;
     case "status":
       if (args.length > 0) fail("Usage: node rotator.mjs status");
@@ -1025,6 +1153,24 @@ try {
       if (args.length < 1 || args.length > 2) fail("Usage: node rotator.mjs disable <index> [reason]");
       cmdDisable(args[0], args[1]);
       break;
+    case "rename":
+    case "title":
+      if (args.length !== 2) fail(`Usage: node rotator.mjs ${command} <index> <label>`);
+      cmdRename(args[0], args[1]);
+      break;
+    case "group":
+    case "set-group":
+      if (args.length < 1 || args.length > 2) fail(`Usage: node rotator.mjs ${command} <index> [group]`);
+      cmdGroup(args[0], args[1]);
+      break;
+    case "rename-group":
+      if (args.length !== 2) fail("Usage: node rotator.mjs rename-group <old> <new>");
+      cmdRenameGroup(args[0], args[1]);
+      break;
+    case "delete-group":
+      if (args.length !== 1) fail("Usage: node rotator.mjs delete-group <group>");
+      cmdDeleteGroup(args[0]);
+      break;
     case "delete":
     case "remove":
       if (args.length !== 1) fail(`Usage: node rotator.mjs ${command} <index>`);
@@ -1038,7 +1184,10 @@ try {
       await cmdUsage(args);
       break;
     case "watch":
-      await cmdWatch(parseWatchArgs(args));
+      {
+        const watchOptions = parseWatchArgs(args);
+        await cmdWatch(watchOptions.intervalMs, watchOptions.group);
+      }
       break;
     default:
       fail(`Unknown command: ${command}`);

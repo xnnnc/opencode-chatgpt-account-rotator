@@ -36,7 +36,7 @@
       line-height: 1.6;
     }
 
-    button, input { font: inherit; }
+    button, input, select { font: inherit; }
     button { border: 0; }
 
     .app {
@@ -130,6 +130,7 @@
     .top-actions,
     .button-row,
     .account-actions,
+    .account-tools,
     .field-row {
       display: flex;
       align-items: center;
@@ -196,22 +197,78 @@
     .tag {
       display: inline-flex;
       align-items: center;
+      gap: 5px;
       width: fit-content;
       max-width: 100%;
       padding: 3px 8px;
-      border-radius: 9999px;
+      border-radius: 6px;
       font-size: 10px;
-      font-weight: 700;
-      letter-spacing: 0.06em;
+      font-weight: 600;
+      letter-spacing: 0.04em;
       text-transform: uppercase;
       white-space: nowrap;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      color: var(--text);
     }
 
-    .tag.neutral { background: #f1f1ef; color: #5f5d58; }
-    .tag.healthy, .tag.running { background: var(--green-bg); color: var(--green-text); }
-    .tag.cooldown, .tag.warn { background: var(--yellow-bg); color: var(--yellow-text); }
-    .tag.disabled, .tag.error { background: var(--red-bg); color: var(--red-text); }
-    .tag.auth { background: var(--blue-bg); color: var(--blue-text); }
+    .tag::before {
+      content: "";
+      display: inline-block;
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+
+    .stat .tag::before {
+      display: none;
+    }
+
+    .tag.neutral {
+      background: var(--surface-soft);
+      border-color: var(--border);
+      color: var(--mono);
+    }
+    .tag.neutral::before {
+      background: var(--muted);
+    }
+
+    .tag.healthy, .tag.running {
+      background: #f4f9f3;
+      border-color: #d1e7dd;
+      color: var(--green-text);
+    }
+    .tag.healthy::before, .tag.running::before {
+      background: #198754;
+    }
+
+    .tag.cooldown, .tag.warn {
+      background: #fffdf5;
+      border-color: #fdecb2;
+      color: var(--yellow-text);
+    }
+    .tag.cooldown::before, .tag.warn::before {
+      background: #ffc107;
+    }
+
+    .tag.disabled, .tag.error {
+      background: #fff5f5;
+      border-color: #f8d7da;
+      color: var(--red-text);
+    }
+    .tag.disabled::before, .tag.error::before {
+      background: #dc3545;
+    }
+
+    .tag.auth {
+      background: #f0f9ff;
+      border-color: #bfe3fc;
+      color: var(--blue-text);
+    }
+    .tag.auth::before {
+      background: #0d6efd;
+    }
 
     .workspace {
       display: grid;
@@ -243,32 +300,80 @@
       word-break: break-all;
     }
 
+    .account-pool-heading {
+      flex: 0 1 220px;
+      min-width: 180px;
+    }
+
+    .account-tools {
+      justify-content: flex-end;
+    }
+
     .accounts-list {
       display: grid;
-      gap: 10px;
-      padding: 12px;
+      grid-template-columns: repeat(auto-fill, minmax(290px, 1fr));
+      gap: 16px;
+      padding: 16px;
       overflow: auto;
     }
 
     .account-row {
-      display: grid;
-      grid-template-columns: minmax(180px, 1.1fr) 220px minmax(250px, 1fr);
-      gap: 14px;
+      display: flex;
+      flex-direction: column;
+      padding: 18px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+      position: relative;
+    }
+
+    .account-row:hover {
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.03);
+      border-color: #cfcac0;
+      transform: translateY(-2px);
+    }
+
+    .account-row.active {
+      border-color: #111111;
+      background: #fffdf8;
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.04);
+    }
+
+    .account-row.active::before {
+      content: "";
+      position: absolute;
+      top: -1px;
+      left: -1px;
+      right: -1px;
+      height: 4px;
+      background: #111111;
+      border-top-left-radius: 12px;
+      border-top-right-radius: 12px;
+    }
+
+    .account-title-row {
+      display: flex;
       align-items: center;
-      padding: 14px;
-      transition: box-shadow 160ms ease, transform 160ms ease;
+      justify-content: space-between;
+      gap: 8px;
     }
 
-    .account-row:hover { box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04); }
-    .account-row.active { border-color: #d9d2c3; background: #fffdf8; }
-
-    .account-main {
-      min-width: 0;
-      display: grid;
-      gap: 5px;
+    .account-title-row h3 {
+      font-size: 14px;
+      margin: 0;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
 
-    .account-id,
+    .account-tags-container {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-top: 8px;
+    }
+
     .path,
     kbd {
       font-family: "Geist Mono", "SF Mono", Consolas, monospace;
@@ -276,7 +381,6 @@
       font-size: 11px;
     }
 
-    .account-id,
     .path {
       overflow: hidden;
       text-overflow: ellipsis;
@@ -285,37 +389,236 @@
 
     .usage-grid {
       display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: 8px;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-bottom: 14px;
     }
 
     .usage-box {
-      padding: 9px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      padding: 10px 12px;
       border: 1px solid var(--border);
       border-radius: 8px;
       background: var(--surface-soft);
     }
 
-    .usage-box strong {
-      display: block;
-      color: var(--heading);
-      font-size: 16px;
-      line-height: 1.1;
+    .usage-info {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
     }
 
-    .usage-box span {
+    .usage-label {
+      font-size: 8.5px;
       color: var(--muted);
-      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+
+    .usage-value {
+      font-size: 16px;
+      font-weight: 700;
+      color: var(--heading);
+      line-height: 1.2;
+    }
+
+    .usage-progress-bg {
+      height: 4px;
+      background: #eaeaea;
+      border-radius: 2px;
+      overflow: hidden;
+      width: 100%;
+    }
+
+    .usage-progress-bar {
+      height: 100%;
+      border-radius: 2px;
+      transition: width 0.3s ease;
+    }
+
+    .usage-progress-bar.normal {
+      background: var(--green-text);
+    }
+
+    .usage-progress-bar.warning {
+      background: var(--yellow-text);
+    }
+
+    .usage-progress-bar.critical {
+      background: var(--red-text);
     }
 
     .account-actions {
-      justify-content: flex-end;
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 6px;
+      margin-top: auto;
+      padding-top: 14px;
+      border-top: 1px solid var(--border);
     }
 
     .account-actions .button {
-      min-height: 30px;
-      padding: 6px 8px;
-      font-size: 12px;
+      min-height: 32px;
+      padding: 6px 4px;
+      font-size: 11px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 100%;
+      text-align: center;
+      border-radius: 6px;
+    }
+
+    /* Segmented View Toggle Control */
+    .view-toggle {
+      display: inline-flex;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 3px;
+      background: var(--surface-soft);
+      gap: 3px;
+      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.02);
+    }
+
+    .view-toggle .button {
+      min-height: 28px;
+      height: 28px;
+      padding: 0 10px;
+      border: none;
+      border-radius: 6px;
+      background: transparent;
+      color: var(--muted);
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 160ms ease;
+    }
+
+    .view-toggle .button:hover {
+      color: var(--text);
+      background: rgba(0, 0, 0, 0.04);
+      box-shadow: none;
+      transform: none;
+    }
+
+    .view-toggle .button.active {
+      background: var(--surface);
+      color: var(--heading);
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06), 0 1px 2px rgba(0, 0, 0, 0.04);
+    }
+
+    .view-toggle svg {
+      display: block;
+      pointer-events: none;
+    }
+
+    /* Custom select style for group filter to match buttons */
+    select#groupFilter {
+      appearance: none;
+      -webkit-appearance: none;
+      -moz-appearance: none;
+      padding-right: 32px;
+      padding-left: 12px;
+      background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='none' stroke='%2371717a' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m4 6 4 4 4-4'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 10px center;
+      background-color: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      cursor: pointer;
+      font-weight: 600;
+      color: var(--text);
+      font-size: 13px;
+      min-height: 34px;
+      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.02);
+      transition: all 160ms ease;
+    }
+
+    select#groupFilter:hover {
+      background-color: #f7f6f3;
+      border-color: #cfcac0;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+    }
+
+    select#groupFilter:focus {
+      border-color: #9a9483;
+      outline: none;
+    }
+
+    /* List View Layout Mode */
+    .accounts-list.view-list {
+      grid-template-columns: 1fr;
+    }
+
+    .accounts-list.view-list .account-row {
+      display: grid;
+      grid-template-columns: minmax(200px, 1.2fr) 220px minmax(360px, 1.5fr);
+      grid-template-rows: 1fr;
+      gap: 0 20px;
+      align-items: center;
+      padding: 14px 18px;
+    }
+
+    .accounts-list.view-list .account-header {
+      grid-column: 1 / 2;
+      grid-row: 1 / 2;
+      margin-bottom: 0;
+      min-width: 0;
+    }
+
+    .accounts-list.view-list .usage-grid {
+      grid-column: 2 / 3;
+      grid-row: 1 / 2;
+      margin-bottom: 0;
+    }
+
+    .accounts-list.view-list .account-actions {
+      grid-column: 3 / 4;
+      grid-row: 1 / 2;
+      margin-top: 0;
+      padding-top: 0;
+      border-top: none;
+      display: flex;
+      flex-direction: row;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+      gap: 6px;
+    }
+
+    .accounts-list.view-list .account-actions .button {
+      width: auto;
+      padding: 6px 10px;
+    }
+
+    /* Grid View Layout Mode */
+    .accounts-list.view-grid {
+      grid-template-columns: repeat(auto-fill, minmax(290px, 1fr));
+    }
+
+    /* Mobile Responsive for List View (forces vertical stack on smaller screens) */
+    @media (max-width: 768px) {
+      .accounts-list.view-list .account-row {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+      }
+      .accounts-list.view-list .account-actions {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        margin-top: 14px;
+        padding-top: 12px;
+        border-top: 1px solid var(--border);
+        width: 100%;
+      }
+      .accounts-list.view-list .account-actions .button {
+        width: 100%;
+        padding: 6px 4px;
+      }
     }
 
     .side-stack {
@@ -343,6 +646,15 @@
     }
 
     .field-row .input { flex: 1 1 150px; }
+
+    .check-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: var(--text);
+      font-size: 12px;
+      font-weight: 700;
+    }
 
     .divider {
       height: 1px;
@@ -446,8 +758,6 @@
       .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
       .workspace { grid-template-columns: 1fr; }
       .side-stack { grid-template-rows: auto auto 360px; }
-      .account-row { grid-template-columns: 1fr; align-items: start; }
-      .account-actions { justify-content: flex-start; }
     }
 
     @media (max-width: 680px) {
@@ -513,13 +823,28 @@
       <section class="workspace" aria-label="Rotator yönetimi">
         <div class="panel reveal" style="--index: 5">
           <div class="panel-head">
-            <div>
+            <div class="account-pool-heading">
               <h2>Hesap havuzu</h2>
               <p class="subtle">Switch, enable, disable, probe ve delete işlemleri mevcut CLI üzerinden çalışır.</p>
             </div>
-            <button class="button" id="switchNextBtn" type="button">En uygun hesaba geç</button>
+            <div class="account-tools">
+              <div class="view-toggle">
+                <button class="button active" id="viewListBtn" type="button" title="Liste Görünümü">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><title>Liste Görünümü</title><line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="21" y2="12"></line><line x1="8" y1="18" x2="21" y2="18"></line><line x1="3" y1="6" x2="3.01" y2="6"></line><line x1="3" y1="12" x2="3.01" y2="12"></line><line x1="3" y1="18" x2="3.01" y2="18"></line></svg>
+                </button>
+                <button class="button" id="viewGridBtn" type="button" title="Grid Görünümü">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><title>Grid Görünümü</title><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
+                </button>
+              </div>
+              <select class="input" id="groupFilter" aria-label="Gruba göre filtrele">
+                <option value="">Tüm gruplar</option>
+              </select>
+              <button class="button" id="renameGroupBtn" type="button">Group Name</button>
+              <button class="button danger" id="deleteGroupBtn" type="button">Grubu sil</button>
+              <button class="button" id="switchNextBtn" type="button">En uygun hesaba geç</button>
+            </div>
           </div>
-          <div class="accounts-list" id="accountsList"></div>
+          <div class="accounts-list view-list" id="accountsList"></div>
         </div>
 
         <aside class="side-stack">
@@ -537,6 +862,10 @@
                   <input class="input" id="labelInput" type="text" maxlength="80" placeholder="gpt-work-account">
                   <button class="button primary" id="addBtn" type="button">Ekle</button>
                 </div>
+              </div>
+              <div class="field">
+                <label for="newGroupInput">Yeni hesap grubu</label>
+                <input class="input" id="newGroupInput" type="text" maxlength="60" placeholder="work, personal, spare">
               </div>
               <div class="divider"></div>
               <div class="field">
@@ -565,6 +894,10 @@
                   <button class="button primary" id="startWatchBtn" type="button">Başlat</button>
                   <button class="button danger" id="stopWatchBtn" type="button">Durdur</button>
                 </div>
+                <label class="check-row">
+                  <input id="watchGroupOnly" type="checkbox">
+                  Sadece seçili grupta çalıştır
+                </label>
               </div>
             </div>
           </section>
@@ -591,6 +924,7 @@
   <script>
     const csrfToken = "__ROTATOR_CSRF_TOKEN__";
     const state = { busy: false, data: null };
+    const UNGROUPED_GROUP_VALUE = "__ungrouped__";
     const elements = {
       navState: document.getElementById("navState"),
       accountCount: document.getElementById("accountCount"),
@@ -608,7 +942,26 @@
       labelInput: document.getElementById("labelInput"),
       intervalInput: document.getElementById("intervalInput"),
       thresholdInput: document.getElementById("thresholdInput"),
+      newGroupInput: document.getElementById("newGroupInput"),
+      groupFilter: document.getElementById("groupFilter"),
+      watchGroupOnly: document.getElementById("watchGroupOnly"),
+      viewListBtn: document.getElementById("viewListBtn"),
+      viewGridBtn: document.getElementById("viewGridBtn"),
     };
+
+    // Restore layout view mode from localStorage
+    const savedViewMode = localStorage.getItem('account-view-mode') || 'list';
+    if (savedViewMode === 'grid') {
+      elements.viewGridBtn.classList.add("active");
+      elements.viewListBtn.classList.remove("active");
+      elements.accountsList.classList.add("view-grid");
+      elements.accountsList.classList.remove("view-list");
+    } else {
+      elements.viewListBtn.classList.add("active");
+      elements.viewGridBtn.classList.remove("active");
+      elements.accountsList.classList.add("view-list");
+      elements.accountsList.classList.remove("view-grid");
+    }
 
     function showToast(message, detail = "") {
       const title = typeof message === "object" ? message.title : message;
@@ -698,11 +1051,6 @@
       return `${accountId.slice(0, 8)}...${accountId.slice(-6)}`;
     }
 
-    function formatTime(ms) {
-      if (!ms) return "unknown";
-      return new Date(ms).toLocaleString();
-    }
-
     function usagePercent(usage, key) {
       const value = usage?.[key]?.usedPercent;
       return value === null || value === undefined ? "n/a" : `${value}%`;
@@ -710,6 +1058,8 @@
 
     function formatPlanType(planType) {
       if (typeof planType !== "string" || !planType.trim()) return "Plan unknown";
+      const raw = planType.trim().toLowerCase();
+      if (raw === "self_serve_business_usage_based") return "Credit Based";
       return planType
         .trim()
         .split(/[_\s-]+/)
@@ -720,6 +1070,15 @@
 
     function statusClass(status) {
       return ["healthy", "disabled", "cooldown"].includes(status) ? status : "neutral";
+    }
+
+    function groupLabel(group) {
+      return typeof group === "string" && group.trim() ? group.trim() : "Grupsuz";
+    }
+
+    function groupFilterValue(group) {
+      const normalized = typeof group === "string" ? group.trim() : "";
+      return normalized || UNGROUPED_GROUP_VALUE;
     }
 
     async function api(path, body) {
@@ -736,43 +1095,85 @@
       return payload;
     }
 
-    function accountNote(account) {
-      const blocked = account.usageBlockedUntil && account.usageBlockedUntil > Date.now();
-      if (blocked) return `Usage block: ${formatTime(account.usageBlockedUntil)}`;
-      if (account.disableReason) return `Disabled: ${account.disableReason}`;
-      if (account.lastSwitchReason) return `Last switch: ${account.lastSwitchReason}`;
-      return "Ready for rotation.";
+    function renderGroupFilter(accounts) {
+      const selected = elements.groupFilter.value || localStorage.getItem('account-selected-group') || "";
+      const groups = [...new Set(accounts.map((account) => groupFilterValue(account.group)))].sort((a, b) => groupLabel(a).localeCompare(groupLabel(b), "tr"));
+      elements.groupFilter.innerHTML = [`<option value="">Tüm gruplar</option>`, ...groups.map((group) => {
+        return `<option value="${escapeHtml(group)}">${escapeHtml(groupLabel(group === UNGROUPED_GROUP_VALUE ? "" : group))}</option>`;
+      })].join("");
+      elements.groupFilter.value = groups.includes(selected) ? selected : "";
     }
 
     function renderAccounts(accounts) {
+      const activeGroup = elements.groupFilter.value;
+      const visibleAccounts = activeGroup ? accounts.filter((account) => groupFilterValue(account.group) === activeGroup) : accounts;
+      if (accounts.length && !visibleAccounts.length) {
+        elements.accountsList.innerHTML = `<article class="empty-state"><h3>Bu grupta hesap yok</h3><p>Filtreyi temizleyin veya hesaba grup atayın.</p></article>`;
+        return;
+      }
       if (!accounts.length) {
         elements.accountsList.innerHTML = `<article class="empty-state"><h3>Hesap yok</h3><p>Önce OpenCode ile login olup aktif auth bilgisini havuza ekleyin.</p></article>`;
         return;
       }
 
-      elements.accountsList.innerHTML = accounts.map((account) => {
+      elements.accountsList.innerHTML = visibleAccounts.map((account) => {
         const usage = account.codexUsage || {};
+        const pPercent = usage?.primaryWindow?.usedPercent;
+        const sPercent = usage?.secondaryWindow?.usedPercent;
+        const pWidth = isFiniteNumber(pPercent) ? Math.max(0, Math.min(100, pPercent)) : 0;
+        const sWidth = isFiniteNumber(sPercent) ? Math.max(0, Math.min(100, sPercent)) : 0;
+
+        function usageBarClass(percent) {
+          if (!isFiniteNumber(percent)) return "empty";
+          if (percent >= 90) return "critical";
+          if (percent >= 75) return "warning";
+          return "normal";
+        }
+
+        const pClass = usageBarClass(pPercent);
+        const sClass = usageBarClass(sPercent);
+        const statusAction = account.status === "disabled" ? "enable" : "disable";
+        const statusLabel = account.status === "disabled" ? "Enable" : "Disable";
+
         return `
           <article class="account-row ${account.active ? "active" : ""}">
-            <div class="account-main">
-              <div class="button-row">
+            <div class="account-header">
+              <div class="account-title-row">
+                <h3>${escapeHtml(account.label)}</h3>
+              </div>
+              <div class="account-tags-container">
                 <span class="tag ${statusClass(account.status)}">${escapeHtml(account.status)}</span>
                 <span class="tag neutral">${escapeHtml(formatPlanType(usage.planType))}</span>
-                ${account.active ? `<span class="tag auth">Active</span>` : ""}
-                ${account.inAuth ? `<span class="tag neutral">auth.json</span>` : ""}
+                <span class="tag neutral">${escapeHtml(groupLabel(account.group))}</span>
               </div>
-              <h3>${escapeHtml(account.label)}</h3>
-              <div class="account-id">${escapeHtml(formatId(account.accountId))}</div>
-              <p class="subtle">${escapeHtml(accountNote(account))}</p>
             </div>
+
             <div class="usage-grid">
-              <div class="usage-box"><strong>${usagePercent(usage, "primaryWindow")}</strong><span>5h window</span></div>
-              <div class="usage-box"><strong>${usagePercent(usage, "secondaryWindow")}</strong><span>7d window</span></div>
+              <div class="usage-box">
+                <div class="usage-info">
+                  <span class="usage-label">5h window</span>
+                  <strong class="usage-value">${usagePercent(usage, "primaryWindow")}</strong>
+                </div>
+                <div class="usage-progress-bg">
+                  <div class="usage-progress-bar ${pClass}" style="width: ${pWidth}%"></div>
+                </div>
+              </div>
+              <div class="usage-box">
+                <div class="usage-info">
+                  <span class="usage-label">7d window</span>
+                  <strong class="usage-value">${usagePercent(usage, "secondaryWindow")}</strong>
+                </div>
+                <div class="usage-progress-bg">
+                  <div class="usage-progress-bar ${sClass}" style="width: ${sWidth}%"></div>
+                </div>
+              </div>
             </div>
+
             <div class="account-actions">
               <button class="button primary" type="button" data-action="switch" data-index="${account.index}" data-account-key="${escapeHtml(account.accountKey)}" ${account.active || account.status === "disabled" ? "disabled" : ""}>Switch</button>
-              <button class="button" type="button" data-action="enable" data-index="${account.index}" data-account-key="${escapeHtml(account.accountKey)}" ${account.status !== "disabled" ? "disabled" : ""}>Enable</button>
-              <button class="button" type="button" data-action="disable" data-index="${account.index}" data-account-key="${escapeHtml(account.accountKey)}" ${account.status === "disabled" ? "disabled" : ""}>Disable</button>
+              <button class="button" type="button" data-action="rename" data-index="${account.index}" data-account-key="${escapeHtml(account.accountKey)}" data-label="${escapeHtml(account.label)}">Title</button>
+              <button class="button" type="button" data-action="${statusAction}" data-index="${account.index}" data-account-key="${escapeHtml(account.accountKey)}">${statusLabel}</button>
+              <button class="button" type="button" data-action="group" data-index="${account.index}" data-account-key="${escapeHtml(account.accountKey)}" data-group="${escapeHtml(account.group || "")}">Group</button>
               <button class="button" type="button" data-action="usage" data-index="${account.index}" data-account-key="${escapeHtml(account.accountKey)}">Usage çek</button>
               <button class="button danger" type="button" data-action="delete" data-index="${account.index}" data-account-key="${escapeHtml(account.accountKey)}">Delete</button>
             </div>
@@ -804,9 +1205,11 @@
       if (Array.isArray(nextState.stateErrors) && nextState.stateErrors.length > 0) {
         elements.authStatus.textContent = `State error · ${nextState.stateErrors[0]}`;
       }
-      elements.watchState.textContent = watch.running ? `Running · pid ${watch.pid}` : "Idle";
-      elements.watchPill.textContent = watch.running ? `pid ${watch.pid}` : "Idle";
+      const watchGroup = watch.group ? ` · grup ${watch.group}` : "";
+      elements.watchState.textContent = watch.running ? `Running · pid ${watch.pid}${watchGroup}` : "Idle";
+      elements.watchPill.textContent = watch.running ? `pid ${watch.pid}${watch.group ? " · group" : ""}` : "Idle";
       elements.watchPill.className = `tag ${watch.running ? "running" : "neutral"}`;
+      renderGroupFilter(accounts);
       renderAccounts(accounts);
       renderLogs(watch.logs || []);
     }
@@ -873,13 +1276,56 @@
 
     document.getElementById("refreshBtn").addEventListener("click", () => refresh().then(() => showToast("Durum yenilendi.")));
     document.getElementById("usageBtn").addEventListener("click", () => runUsage("/api/usage", {}, "bulk"));
-    document.getElementById("addBtn").addEventListener("click", () => run("/api/add", { label: elements.labelInput.value }, "Hesap eklendi."));
+    document.getElementById("addBtn").addEventListener("click", () => run("/api/add", {
+      label: elements.labelInput.value,
+      group: elements.newGroupInput.value,
+    }, "Hesap eklendi."));
     document.getElementById("switchNextBtn").addEventListener("click", () => run("/api/switch", {}, "En uygun hesaba geçildi."));
+    document.getElementById("renameGroupBtn").addEventListener("click", () => {
+      const oldGroup = elements.groupFilter.value;
+      if (!oldGroup || oldGroup === UNGROUPED_GROUP_VALUE) {
+        showToast("Önce isimli bir grup seçin.");
+        return;
+      }
+      const newGroup = prompt("Yeni grup adı", oldGroup);
+      if (newGroup === null) return;
+      run("/api/group/rename", { oldGroup, newGroup }, "Grup adı değiştirildi.");
+    });
+    document.getElementById("deleteGroupBtn").addEventListener("click", () => {
+      const group = elements.groupFilter.value;
+      if (!group || group === UNGROUPED_GROUP_VALUE) {
+        showToast("Önce isimli bir grup seçin.");
+        return;
+      }
+      if (!confirm(`"${group}" grubu kaldırılsın mı? Hesaplar silinmez.`)) return;
+      run("/api/group/delete", { group }, "Grup kaldırıldı.");
+    });
     document.getElementById("startWatchBtn").addEventListener("click", () => run("/api/watch/start", {
       intervalMs: Number(elements.intervalInput.value),
       thresholdPercent: Number(elements.thresholdInput.value),
+      group: elements.watchGroupOnly.checked ? elements.groupFilter.value : "",
     }, "Watch başlatıldı."));
     document.getElementById("stopWatchBtn").addEventListener("click", () => run("/api/watch/stop", {}, "Watch durduruldu."));
+    elements.groupFilter.addEventListener("change", () => {
+      localStorage.setItem('account-selected-group', elements.groupFilter.value);
+      renderAccounts(state.data?.accounts || []);
+    });
+
+    elements.viewListBtn.addEventListener("click", () => {
+      elements.viewListBtn.classList.add("active");
+      elements.viewGridBtn.classList.remove("active");
+      elements.accountsList.classList.add("view-list");
+      elements.accountsList.classList.remove("view-grid");
+      localStorage.setItem('account-view-mode', 'list');
+    });
+
+    elements.viewGridBtn.addEventListener("click", () => {
+      elements.viewGridBtn.classList.add("active");
+      elements.viewListBtn.classList.remove("active");
+      elements.accountsList.classList.add("view-grid");
+      elements.accountsList.classList.remove("view-list");
+      localStorage.setItem('account-view-mode', 'grid');
+    });
 
     elements.accountsList.addEventListener("click", (event) => {
       const button = event.target.closest("button[data-action]");
@@ -895,6 +1341,18 @@
       }
       if (action === "usage") {
         runUsage("/api/usage/account", { index, accountKey }, "single");
+        return;
+      }
+      if (action === "group") {
+        const group = prompt("Group", button.dataset.group || "");
+        if (group === null) return;
+        run("/api/group", { index, accountKey, group }, "Grup güncellendi.");
+        return;
+      }
+      if (action === "rename") {
+        const label = prompt("Account title", button.dataset.label || "");
+        if (label === null) return;
+        run("/api/rename", { index, accountKey, label }, "Başlık güncellendi.");
         return;
       }
       run(`/api/${action}`, { index, accountKey }, `${action} tamamlandı.`);

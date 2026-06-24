@@ -51,6 +51,7 @@ const MAX_BODY_BYTES = 64 * 1024;
 const MAX_LOG_LINES = 240;
 
 let watchProcess = null;
+let watchGroup = "";
 const watchLogs = [];
 
 function readJson(filePath) {
@@ -94,6 +95,7 @@ function safeAccount(acc, index, activeIndex, authAccountId) {
     index,
     accountKey: accountKey(acc, index),
     label: acc?.label || `account-${index + 1}`,
+    group: typeof acc?.group === "string" ? acc.group.trim() : "",
     status: acc?.status || "unknown",
     active: index === activeIndex,
     inAuth: Boolean(acc?.openai?.accountId && acc.openai.accountId === authAccountId),
@@ -132,6 +134,7 @@ function getState() {
     watch: {
       running: Boolean(watchProcess),
       pid: watchProcess?.pid || null,
+      group: watchGroup || null,
       logs: watchLogs.slice(-MAX_LOG_LINES),
     },
   };
@@ -191,7 +194,7 @@ function normalizeThresholdPercent(value) {
   return Math.round(threshold);
 }
 
-function startWatch(intervalMs, thresholdPercent) {
+function startWatch(intervalMs, thresholdPercent, groupValue) {
   if (watchProcess) {
     return { ok: true, message: "Watch already running.", pid: watchProcess.pid };
   }
@@ -199,6 +202,10 @@ function startWatch(intervalMs, thresholdPercent) {
   const args = [ROTATOR_FILE, "watch"];
   if (Number.isFinite(intervalMs) && intervalMs >= 1000) {
     args.push(`--interval=${Math.round(intervalMs)}`);
+  }
+  watchGroup = toGroup(groupValue);
+  if (watchGroup) {
+    args.push(`--group=${watchGroup}`);
   }
 
   const normalizedThreshold = normalizeThresholdPercent(thresholdPercent);
@@ -213,7 +220,7 @@ function startWatch(intervalMs, thresholdPercent) {
     stdio: ["ignore", "pipe", "pipe"],
   });
 
-  appendWatchLog(`GUI started watch process ${watchProcess.pid}${normalizedThreshold === null ? "" : ` with ${normalizedThreshold}% threshold`}.`);
+  appendWatchLog(`GUI started watch process ${watchProcess.pid}${normalizedThreshold === null ? "" : ` with ${normalizedThreshold}% threshold`}${watchGroup ? ` for group "${watchGroup}"` : ""}.`);
   watchProcess.stdout.on("data", appendWatchLog);
   watchProcess.stderr.on("data", appendWatchLog);
   watchProcess.on("error", (error) => {
@@ -222,6 +229,7 @@ function startWatch(intervalMs, thresholdPercent) {
   watchProcess.on("close", (code) => {
     appendWatchLog(`watch stopped with code ${code}.`);
     watchProcess = null;
+    watchGroup = "";
   });
 
   return { ok: true, message: "Watch started.", pid: watchProcess.pid };
@@ -235,6 +243,7 @@ function stopWatch() {
   const pid = watchProcess.pid;
   watchProcess.kill("SIGTERM");
   appendWatchLog(`GUI requested watch stop for process ${pid}.`);
+  watchGroup = "";
   return { ok: true, message: "Watch stop requested.", pid };
 }
 
@@ -342,6 +351,30 @@ function toLabel(value) {
   return label;
 }
 
+function toRequiredLabel(value) {
+  const label = toLabel(value);
+  if (!label) {
+    throw new Error("A label is required.");
+  }
+  return label;
+}
+
+function toGroup(value) {
+  const group = typeof value === "string" ? value.trim() : "";
+  if (group.length > 60) {
+    throw new Error("Group must be 60 characters or less.");
+  }
+  return group;
+}
+
+function toRequiredGroup(value) {
+  const group = toGroup(value);
+  if (!group) {
+    throw new Error("A group name is required.");
+  }
+  return group;
+}
+
 function resolveAccountTarget(body) {
   const index = toIndex(body.index);
   const expectedKey = typeof body.accountKey === "string" ? body.accountKey : "";
@@ -401,7 +434,7 @@ async function handleApi(request, response, url) {
     let result;
     switch (url.pathname) {
       case "/api/add":
-        result = await runRotator(["add", toLabel(body.label)].filter(Boolean));
+        result = await runRotator(["add", toLabel(body.label), toGroup(body.group)]);
         break;
       case "/api/switch":
         result = await runRotator(["switch", body.index === undefined ? undefined : resolveAccountTarget(body)].filter(Boolean));
@@ -411,6 +444,18 @@ async function handleApi(request, response, url) {
         break;
       case "/api/disable":
         result = await runRotator(["disable", resolveAccountTarget(body), toLabel(body.reason) || "manual_gui_disable"]);
+        break;
+      case "/api/rename":
+        result = await runRotator(["rename", resolveAccountTarget(body), toRequiredLabel(body.label)]);
+        break;
+      case "/api/group":
+        result = await runRotator(["group", resolveAccountTarget(body), toGroup(body.group)]);
+        break;
+      case "/api/group/rename":
+        result = await runRotator(["rename-group", toRequiredGroup(body.oldGroup), toRequiredGroup(body.newGroup)]);
+        break;
+      case "/api/group/delete":
+        result = await runRotator(["delete-group", toRequiredGroup(body.group)]);
         break;
       case "/api/delete":
         result = await runRotator(["delete", resolveAccountTarget(body)]);
@@ -425,7 +470,7 @@ async function handleApi(request, response, url) {
         result = await runRotator(["usage", resolveAccountTarget(body), "--json"]);
         break;
       case "/api/watch/start":
-        sendJson(response, 200, { ...startWatch(Number(body.intervalMs), body.thresholdPercent), state: getState() });
+        sendJson(response, 200, { ...startWatch(Number(body.intervalMs), body.thresholdPercent, body.group), state: getState() });
         return;
       case "/api/watch/stop":
         sendJson(response, 200, { ...stopWatch(), state: getState() });
