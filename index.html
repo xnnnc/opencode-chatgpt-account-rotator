@@ -452,6 +452,14 @@
       background: var(--red-text);
     }
 
+    .usage-resets {
+      font-size: 10px;
+      color: var(--muted);
+      font-weight: 600;
+      letter-spacing: 0.01em;
+      white-space: nowrap;
+    }
+
     .account-actions {
       display: grid;
       grid-template-columns: repeat(3, 1fr);
@@ -1056,6 +1064,20 @@
       return value === null || value === undefined ? "n/a" : `${value}%`;
     }
 
+    function formatRemainingTime(resetAt) {
+      if (!isFiniteNumber(resetAt)) return "";
+      const remainingMs = resetAt - Date.now();
+      if (remainingMs <= 0) return "yenileniyor";
+      const totalMinutes = Math.round(remainingMs / 60000);
+      if (totalMinutes < 1) return "≈ <1dk sonra";
+      const days = Math.floor(totalMinutes / 1440);
+      const hours = Math.floor((totalMinutes % 1440) / 60);
+      const minutes = totalMinutes % 60;
+      if (days > 0) return `≈ ${days}g ${hours}s sonra`;
+      if (hours > 0) return `≈ ${hours}s ${minutes}dk sonra`;
+      return `≈ ${minutes}dk sonra`;
+    }
+
     function formatPlanType(planType) {
       if (typeof planType !== "string" || !planType.trim()) return "Plan unknown";
       const raw = planType.trim().toLowerCase();
@@ -1153,6 +1175,7 @@
                 <div class="usage-info">
                   <span class="usage-label">5h window</span>
                   <strong class="usage-value">${usagePercent(usage, "primaryWindow")}</strong>
+                  <span class="usage-resets">${formatRemainingTime(usage?.primaryWindow?.resetAt)}</span>
                 </div>
                 <div class="usage-progress-bg">
                   <div class="usage-progress-bar ${pClass}" style="width: ${pWidth}%"></div>
@@ -1162,6 +1185,7 @@
                 <div class="usage-info">
                   <span class="usage-label">7d window</span>
                   <strong class="usage-value">${usagePercent(usage, "secondaryWindow")}</strong>
+                  <span class="usage-resets">${formatRemainingTime(usage?.secondaryWindow?.resetAt)}</span>
                 </div>
                 <div class="usage-progress-bg">
                   <div class="usage-progress-bar ${sClass}" style="width: ${sWidth}%"></div>
@@ -1370,7 +1394,13 @@
     document.querySelectorAll(".reveal").forEach((item) => {
       observer.observe(item);
     });
-    refresh().catch((error) => showToast(error.message));
+    refresh()
+      .catch((error) => showToast(error.message))
+      .then(() => {
+        if (Array.isArray(state.data?.accounts) && state.data.accounts.length) {
+          runUsage("/api/usage", {}, "bulk");
+        }
+      });
     setInterval(() => refresh().catch(() => {}), 5000);
   </script>
 </body>
